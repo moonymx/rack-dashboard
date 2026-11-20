@@ -20,7 +20,7 @@ const p95 = (arr) => {
  * เมื่อ mode เปลี่ยน effect เดิมจะถูก cleanup (ปิด MQTT / ยกเลิก fetch) ก่อนเสมอ
  *
  * latency: (เฉพาะโหมด live + ข้อมูลจริง + payload มี timestamp จากอุปกรณ์)
- *   = เวลาที่ข้อความมาถึงเบราว์เซอร์ - timestamp ที่ ESP32 ใส่มา  -> ใช้ประกอบ QR-05
+ *   = เวลาที่ข้อความมาถึงเบราว์เซอร์ - timestamp ที่ ESP32 ใส่มา -> ใช้ประกอบ QR-05
  *   ต้องซิงก์เวลา ESP32 (NTP) และเครื่องที่เปิดแดชบอร์ดให้ตรงกัน
  */
 export function useTelemetry({ mode, range, rackId = CONFIG.rackId, historyRackId, enabled = true }) {
@@ -29,6 +29,9 @@ export function useTelemetry({ mode, range, rackId = CONFIG.rackId, historyRackI
   const [error, setError] = useState(null);
   const [latency, setLatency] = useState(null); // {count, p95, max, negative}
   const latRef = useRef([]);
+
+  const fromTs = range?.from;
+  const toTs = range?.to;
 
   useEffect(() => {
     if (!enabled) return undefined; // เช่น ตัวดึงข้อมูลย้อนหลังจะทำงานเฉพาะตอนเปิดแท็บ History
@@ -73,9 +76,10 @@ export function useTelemetry({ mode, range, rackId = CONFIG.rackId, historyRackI
     }
 
     // history
+    if (fromTs == null || toTs == null) return undefined;
     setStatus('loading');
     const ctrl = new AbortController();
-    fetchHistory({ rackId: historyRackId || rackId, from: range.from, to: range.to, signal: ctrl.signal })
+    fetchHistory({ rackId: historyRackId || rackId, from: fromTs, to: toTs, signal: ctrl.signal })
       .then((data) => {
         if (cancelled) return;
         setRows(data);
@@ -90,7 +94,7 @@ export function useTelemetry({ mode, range, rackId = CONFIG.rackId, historyRackI
       cancelled = true;
       ctrl.abort();
     };
-  }, [mode, rackId, historyRackId, range.from, range.to, enabled]);
+  }, [mode, rackId, historyRackId, fromTs, toTs, enabled]);
 
   return { rows, status, error, latency };
 }
